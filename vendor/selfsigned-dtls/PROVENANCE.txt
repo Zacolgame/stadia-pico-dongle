@@ -1,0 +1,17 @@
+DTLS lab identity provenance (p3-3656-mixed)
+==========================================
+leaf.pem / privkey.pem: a throwaway self-signed ECDSA P-256 certificate
+generated locally on 2026-11-08 (CN=stadia-dtls.local, O=StadiaDev-Lab,
+10-year validity, SAN-only extensions, DER 397 bytes).
+
+Why self-signed is correct here: the controller pins the DTLS leaf by its
+SHA-256 fingerprint carried in the SDP answer (exchanged over the validated
+HTTPS channel) and never builds or validates a DTLS chain. A minimal lab
+identity keeps the ServerHello flight inside ONE UDP datagram (~660 B),
+which the controller requires (it neither reassembles IP fragments nor
+multi-record handshake flights from this stack).
+
+This key has no legal weight: it is self-issued for a .local name, cannot
+impersonate anyone, and may be regenerated at any time with the same
+parameters (see tools/gen-certs.py). For open source this directory is
+safe to ship as-is.

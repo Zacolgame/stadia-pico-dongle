@@ -1,0 +1,23 @@
+Built-in credential provenance (p3-3652-certswitch)
+===============================================
+Source: https://github.com/jkfran/stadiacast
+File in upstream: src/stadiacast/data/identity.bin (unencrypted PKCS#12)
+Upstream commit: origin/main as of 2026-11-08 (post-1.0.1; contains
+  "Ship a built-in credential so the receiver needs no certificate").
+
+What it is: a GTS-issued chain for CN=stadiacast.lol (ECDSA P-256 leaf,
+valid 2026-11-05..2027-02-03) + WR1 intermediate + GTS Root R1, with the
+private key. Upstream REVOKED it at their request BEFORE publishing the key,
+so the key is safe to embed: ordinary TLS clients (which check revocation)
+reject it, while the Stadia controller (which checks chain-to-GTS-roots only -
+not hostname, dates or revocation) accepts it.
+
+Why we switched: our previous chain (a personal dynamic-DNS domain, RSA-2048,
+same WR1 issuer) carries a LIVE private key that must never be published.
+Adopting the reference implementation's revoked credential removes that
+exposure and keeps us byte-aligned with the living spec. Controller-visible behavior is unchanged
+(chain still terminates at GTS Root R1).
+
+Files here: fullchain.pem (leaf+WR1+Root, served on :443), privkey.pem (EC),
+leaf.pem (TLS_LEAF_PEM source; currently unused by firmware, kept for API stability).
+Regenerate firmware bytes with: python tools/gen-certs.py

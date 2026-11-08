@@ -1,0 +1,3 @@
+# Keep Unix scripts LF-only (they run on Android via adb; CRLF breaks shebangs).
+*.sh text eol=lf
+# Everything else: platform default (gen-certs.py normalizes PEM newlines).

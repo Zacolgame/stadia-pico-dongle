@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Pico 手柄测试台 · padtest</title>
+<style>
+  :root {
+    --bg: #0e1116; --panel: #161b23; --panel2: #1b212c; --border: #27303e;
+    --text: #d3dae6; --muted: #8b96a8; --acc: #4da3ff; --ok: #3ddc84;
+    --warn: #ffb454; --danger: #ff5c5c; --cyan: #39c5cf;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.5 system-ui, "Segoe UI", "Microsoft YaHei", sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; gap: 12px; padding: 14px;
+  }
+  h1 { font-size: 18px; margin: 0; }
+  header .hint { color: var(--muted); font-size: 12px; margin: 4px 0 0; }
+  header .hint code { background: var(--panel2); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; font-size: 11px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+  }
+  .card-title { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  .muted { color: var(--muted); font-weight: 400; font-size: 12px; }
+
+  /* ---------- session card ---------- */
+  .stage-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .stage {
+    font-size: 12px; padding: 4px 12px; border: 1px solid var(--border); border-radius: 999px;
+    color: var(--muted); background: var(--panel2); white-space: nowrap;
+  }
+  .stage.done { color: var(--ok); border-color: #2c5a3a; }
+  .stage.active { background: #1f6feb; border-color: #1f6feb; color: #fff; font-weight: 700; }
+  .stage[data-stage="4"].active { background: #ffd700; border-color: #ffd700; color: #10131a; }
+  .stage-big { margin-left: auto; font-size: 18px; font-weight: 800; }
+  .stage-big.s0 { color: var(--muted); } .stage-big.s1 { color: var(--acc); }
+  .stage-big.s2 { color: var(--cyan); } .stage-big.s3 { color: var(--ok); }
+  .stage-big.s4 { color: #ffd700; }
+  .kv-row { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .kv-row b { color: var(--text); font-family: ui-monospace, Consolas, monospace; }
+
+  /* ---------- main columns ---------- */
+  main.cols { display: grid; grid-template-columns: 430px 1fr; gap: 12px; flex: 1; min-height: 0; }
+  @media (max-width: 1020px) { main.cols { grid-template-columns: 1fr; } }
+
+  /* ---------- gamepad panel ---------- */
+  #padSelect { width: 100%; margin: 2px 0 8px; background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; font-size: 12px; }
+  .padinfo { font-size: 12px; word-break: break-all; color: var(--text); margin-bottom: 6px; }
+  .pad-sub { font-size: 11px; color: var(--muted); letter-spacing: .06em; margin: 8px 0 6px; }
+  .btn-array { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .pbtn {
+    padding: 7px 2px; text-align: center; font-size: 11px; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--panel2); color: var(--muted); user-select: none;
+  }
+  .pbtn.mid { color: #7ee787; border-color: #2c5a3a; }
+  .pbtn.on  { background: #2ea043; border-color: #2ea043; color: #fff; font-weight: 700; }
+  .trig { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 12px; }
+  .trig label { width: 26px; color: var(--muted); }
+  .bar { flex: 1; height: 14px; background: #0b0e13; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  .fill { height: 100%; width: 0%; background: linear-gradient(90deg, #2ea043, #7ee787); }
+  .trig .val { width: 42px; text-align: right; font-family: ui-monospace, Consolas, monospace; }
+  .sticks { display: flex; gap: 20px; justify-content: center; padding: 10px 0 4px; }
+  .stick-block { text-align: center; }
+  .stick {
+    width: 104px; height: 104px; border-radius: 50%; position: relative;
+    background: #0b0e13; border: 1px solid var(--border);
+    background-image: linear-gradient(to right, transparent 49.5%, #232b38 49.5% 50.5%, transparent 50.5%),
+                      linear-gradient(to bottom, transparent 49.5%, #232b38 49.5% 50.5%, transparent 50.5%);
+  }
+  .stick .dot {
+    width: 18px; height: 18px; border-radius: 50%; background: var(--ok);
+    position: absolute; left: 50%; top: 50%; margin: -9px 0 0 -9px;
+  }
+  .stick-num { font: 11px ui-monospace, Consolas, monospace; color: var(--muted); margin-top: 6px; }
+
+  /* ---------- serial panel ---------- */
+  .serial-card { display: flex; flex-direction: column; min-height: 0; }
+  .badge { font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 999px; margin-left: 8px; }
+  .badge.off { background: #2b2126; color: #ff8f8f; border: 1px solid #553; }
+  .badge.on  { background: #0f2e1c; color: var(--ok); border: 1px solid #2c5a3a; }
+  .ctl-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .cmd-row { display: flex; gap: 8px; margin-bottom: 4px; }
+  button {
+    background: #222a36; color: var(--text); border: 1px solid var(--border);
+    padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer;
+  }
+  button:hover:not(:disabled) { border-color: #3b4a61; }
+  button:disabled { opacity: .38; cursor: default; }
+  button.primary { background: #1f6feb; border-color: #1f6feb; color: #fff; font-weight: 700; }
+  .chk { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+  .big {
+    flex: 1; min-height: 56px; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 2px; font-size: 15px; font-weight: 700; padding: 8px;
+  }
+  .big small { font-weight: 400; font-size: 11px; opacity: .75; }
+  .danger { background: #3a1114; border-color: var(--danger); color: #ff8f8f; }
+  .danger.armed { background: var(--danger); color: #fff; animation: pulse .8s infinite alternate; }
+  @keyframes pulse { from { box-shadow: 0 0 0 0 rgba(255,92,92,.0); } to { box-shadow: 0 0 0 6px rgba(255,92,92,.25); } }
+  .cmd-note { font-size: 11px; color: var(--muted); margin: 0 0 8px; }
+  .log {
+    flex: 1; min-height: 240px; height: 44vh; overflow-y: auto; background: #0b0e13;
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+    font: 12px/1.55 ui-monospace, Consolas, "Cascadia Mono", monospace;
+  }
+  .ln { white-space: pre-wrap; word-break: break-all; color: #b9c4d4; }
+  .ts { color: #5b6675; }
+  .ln-sys { color: var(--muted); font-style: italic; }
+  .ln-tx { color: var(--acc); font-weight: 700; }
+  .ln-err { color: #ff7b72; }
+  .ln-pad { color: #9d8cff; }
+  .hl-rumble { color: var(--warn); font-weight: 600; }
+  .hl-audio { color: var(--cyan); }
+  .hl-gametx { color: #7ee787; font-weight: 600; }
+  .hl-ack { color: var(--ok); font-weight: 700; background: #12351f; padding: 0 3px; border-radius: 3px; }
+  .hl-pad { color: #c696ff; font-weight: 600; }
+  .hl-disp { color: #79b8ff; font-weight: 600; }
+  .hl-st4 { color: #ffd700; font-weight: 700; background: #3a2f00; padding: 0 3px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Pico 手柄测试台（padtest）</h1>
+  <p class="hint">
+    需要 Chrome / Edge 桌面版（Web Serial + Gamepad API）。单文件、零依赖、完全离线；
+    <b>file:// 直接双击打开即可用</b>（Chrome 把 file:// 视为安全上下文，Web Serial 可用）。
+    串口需点击下方按钮授权（用户手势）；手柄需按任意键后浏览器才会列出。
+    若你的浏览器版本在 file:// 下拦截串口：在本目录运行 <code>python -m http.server 8000</code> 后访问
+    <code>http://localhost:8000/tools/padtest.html</code>。
+  </p>
+</header>
+
+<section class="card" id="rateCard">
+  <div class="card-title">回报率 <span class="muted">（摇杆画圈时读取）</span></div>
+  <div class="stage-row">
+    <span class="stage on">Pico→Windows <b class="r-hz">…</b></span>
+    <span class="stage">间隔 p50/p95/max <b class="r-iv">—</b></span>
+    <span class="stage">手柄→Pico <b class="r-in3">0 /s</b></span>
+  </div>
+</section>
+<section class="card" id="sessionCard">
+  <div class="card-title">会话状态 <span class="muted">（从串口流解析 hb/t= 行）</span></div>
+  <div class="stage-row">
+    <span class="stage" data-stage="0">0 未连</span>
+    <span class="stage" data-stage="1">1 注册</span>
+    <span class="stage" data-stage="2">2 链路</span>
+    <span class="stage" data-stage="3">3 READY</span>
+    <span class="stage" data-stage="4">4 GAME</span>
+    <span id="stageBig" class="stage-big s0">—</span>
+  </div>
+  <div class="kv-row">
+    <span>cloud=<b id="stCloud">?</b></span>
+    <span>st=<b id="stSt">?</b></span>
+    <span>au 音频帧=<b id="stAu">?</b></span>
+    <span>build=<b id="stBuild">?</b></span>
+    <span>AP=<b id="stSsid">?</b></span>
+    <span>uptime=<b id="stUptime">?</b></span>
+    <span>最近数据=<b id="stSeen">—</b></span>
+  </div>
+</section>
+
+<main class="cols">
+
+  <section class="card" id="gamepadCard">
+    <div class="card-title">手柄可视化 <span class="muted">（Gamepad API · XInput 原生可见）</span></div>
+    <div id="padInfo" class="padinfo">未检测到手柄</div>
+    <select id="padSelect"><option value="-1">(无手柄)</option></select>
+    <div class="pad-grid">
+      <div>
+        <div class="pad-sub">按钮 buttons[0..16]</div>
+        <div class="btn-array" id="padButtons"></div>
+        <div class="pad-sub">扳机（模拟量）</div>
+        <div class="trig"><label>LT</label><div class="bar"><div class="fill" id="ltFill"></div></div><span class="val" id="ltVal">0.00</span></div>
+        <div class="trig"><label>RT</label><div class="bar"><div class="fill" id="rtFill"></div></div><span class="val" id="rtVal">0.00</span></div>
+      </div>
+      <div>
+        <div class="pad-sub">摇杆 XY（axes 0-3）</div>
+        <div class="sticks">
+          <div class="stick-block">
+            <div class="stick" id="stickL"><div class="dot" id="stickLdot"></div></div>
+            <div class="stick-num" id="stickLnum">L x+0.00 y+0.00</div>
+          </div>
+          <div class="stick-block">
+            <div class="stick" id="stickR"><div class="dot" id="stickRdot"></div></div>
+            <div class="stick-num" id="stickRnum">R x+0.00 y+0.00</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card serial-card">
+    <div class="card-title">串口命令台 <span class="muted">（Web Serial · 115200 · DTR=true）</span><span id="portState" class="badge off">未连接</span></div>
+    <div class="ctl-row">
+      <button id="btnConnect" class="primary">连接 Pico (COM口)</button>
+      <button id="btnDisconnect" disabled>断开</button>
+      <button id="btnClear">清空日志</button>
+      <label class="chk"><input type="checkbox" id="autoScroll" checked>自动滚动</label>
+      <span class="muted" id="rxCount"></span>
+    </div>
+    <div class="cmd-row">
+      <button id="btnRumble" class="big" disabled>RUMBLE<small>200ms / 75% 双马达</small></button>
+      <button id="btnTone" class="big" disabled>TONE<small>440Hz / 2500ms 扬声器（需会话）</small></button>
+      <button id="btnBootsel" class="big danger" disabled><span id="bootselLabel">BOOTSEL</span><small id="bootselHint">危险 · 重启进 RP2350 刷机盘（两次点击确认）</small></button>
+    </div>
+    <p class="cmd-note">命令字节：RUMBLE→"RUMBLE\r\n" · TONE→"TONE\r\n\r" · BOOTSEL→"BOOTSEL\r\n"（固件按 \r/\n 任一结束符截断命令）</p>
+    <div id="log" class="log" tabindex="0"></div>
+  </section>
+
+</main>
+
+<noscript>本页需要启用 JavaScript。</noscript>
+
+<script>
+'use strict';
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ============================ 串口 ============================
+  var port = null, writer = null, reader = null, readAbort = false;
+  var lineBuf = '', rxLines = 0, txCount = 0;
+  var decoder = new TextDecoder('utf-8');
+
+  var logEl = $('log'), autoScrollEl = $('autoScroll'), portStateEl = $('portState');
+  var btnConnect = $('btnConnect'), btnDisconnect = $('btnDisconnect');
+  var btnRumble = $('btnRumble'), btnTone = $('btnTone'), btnBootsel = $('btnBootsel');
+
+  var CMDS = {
+    rumble: 'RUMBLE\r\n',
+    tone: 'TONE\r\n\r',
+    bootsel: 'BOOTSEL\r\n'
+  };
+
+  function p2(n) { return (n < 10 ? '0' : '') + n; }
+  function ts() { var d = new Date(); return p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds()); }
+  function esc(s) {
+    return s.replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ---- 关键字高亮：单趟扫描，避免 span 内再被匹配 ----
+  var HL_RE = /(game ack in|game tx|disp in3|rumble|audio|pad:|st=4)/gi;
+  function hlClass(w) {
+    w = w.toLowerCase();
+    if (w === 'game ack in') return 'hl-ack';
+    if (w === 'game tx') return 'hl-gametx';
+    if (w === 'disp in3') return 'hl-disp';
+    if (w === 'rumble') return 'hl-rumble';
+    if (w === 'audio') return 'hl-audio';
+    if (w === 'pad:') return 'hl-pad';
+    if (w === 'st=4') return 'hl-st4';
+    return '';
+  }
+  function renderHL(text) {
+    var out = '', last = 0, m;
+    HL_RE.lastIndex = 0;
+    if (text.indexOf('disp in3') >= 0) {
+      var n2 = performance.now();
+      if (typeof rt !== 'undefined' && rt.in3) { rt.in3.push(n2); }
+    }
+    while ((m = HL_RE.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index)) + '<span class="' + hlClass(m[0]) + '">' + esc(m[0]) + '</span>';
+      last = m.index + m[0].length;
+    }
+    return out + esc(text.slice(last));
+  }
+  function lineClass(t) {
+    if (t.indexOf('pad:') === 0) return 'ln-pad';
+    return '';
+  }
+
+  var MAX_LINES = 900;
+  function appendLine(raw, cls) {
+    var div = document.createElement('div');
+    div.className = 'ln ' + (cls || '');
+    div.innerHTML = '<span class="ts">[' + ts() + '] </span>' + renderHL(raw);
+    logEl.appendChild(div);
+    while (logEl.childElementCount > MAX_LINES) logEl.removeChild(logEl.firstChild);
+    if (autoScrollEl.checked) logEl.scrollTop = logEl.scrollHeight;
+  }
+  function sysLine(raw) {
+    var div = document.createElement('div');
+    div.className = 'ln ln-sys';
+    div.textContent = '[' + ts() + '] ' + raw;
+    logEl.appendChild(div);
+    if (autoScrollEl.checked) logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  // ---- 会话状态解析：hb ... cloud=N / t=... st=N au=N ----
+  var STAGE_NAMES = ['0 未连', '1 注册', '2 链路', '3 READY', '4 GAME'];
+  var stageEls = [];
+  for (var si = 0; si <= 4; si++) stageEls.push(document.querySelector('.stage[data-stage="' + si + '"]'));
+  var lastStageSrc = '';
+  function setStage(n, src) {
+    if (n < 0 || n > 4) return;
+    lastStageSrc = src || lastStageSrc;
+    for (var i = 0; i <= 4; i++) {
+      stageEls[i].classList.toggle('active', i === n);
+      stageEls[i].classList.toggle('done', i < n);
+    }
+    var big = $('stageBig');
+    big.textContent = STAGE_NAMES[n] + ' (' + lastStageSrc + ')';
+    big.className = 'stage-big s' + n;
+  }
+  function parseStatus(line) {
+    var m;
+    if ((m = line.match(/\bcloud=(\d+)/))) { $('stCloud').textContent = m[1]; setStage(parseInt(m[1], 10), 'hb'); }
+    if ((m = line.match(/\bst=(\d+)/)))   { $('stSt').textContent = m[1];   setStage(parseInt(m[1], 10), 'st='); }
+    if ((m = line.match(/\bau=(\d+)/)))   { $('stAu').textContent = m[1]; }
+    if ((m = line.match(/hb build=(\S+)/))) { $('stBuild').textContent = m[1]; }
+    if ((m = line.match(/ap ssid=\[([^\]]*)\]/))) { $('stSsid').textContent = m[1] || '(空)'; }
+    if ((m = line.match(/(?:^|\s)t=(\d+)/))) {
+      var sec = Math.floor(parseInt(m[1], 10) / 1000);
+      var hh = Math.floor(sec / 3600), mm = Math.floor((sec % 3600) / 60), ss = sec % 60;
+      $('stUptime').textContent = (hh > 0 ? hh + 'h' : '') + p2(mm) + 'm' + p2(ss) + 's';
+    }
+    if (/\bcloud=|\bst=/.test(line)) $('stSeen').textContent = ts();
+  }
+
+  // ---- 分帧：固件日志行以 \r\n 结尾（clog_ 显式追加 13,10）----
+  function onChunk(txt) {
+    lineBuf += txt;
+    var parts = lineBuf.split(/\r\n|\r|\n/);
+    lineBuf = parts.pop() || '';
+    if (lineBuf.length > 4096) { appendLine(lineBuf, 'ln-err'); lineBuf = ''; }
+    for (var i = 0; i < parts.length; i++) {
+      var line = parts[i];
+      if (!line) continue;
+      rxLines++;
+      appendLine(line, lineClass(line));
+      parseStatus(line);
+    }
+    $('rxCount').textContent = '行 ' + rxLines + ' · TX ' + txCount;
+  }
+
+  function setConnected(on, note) {
+    portStateEl.textContent = on ? '已连接' : (note || '未连接');
+    portStateEl.className = 'badge ' + (on ? 'on' : 'off');
+    btnConnect.disabled = on;
+    btnDisconnect.disabled = !on;
+    btnRumble.disabled = !on;
+    btnTone.disabled = !on;
+    btnBootsel.disabled = !on;
+    if (!on) disarmBootsel();
+  }
+
+  async function connectSerial() {
+    if (!('serial' in navigator)) {
+      sysLine('此浏览器不支持 Web Serial —— 请用桌面版 Chrome / Edge 打开本页');
+      return;
+    }
+    try {
+      sysLine('请求串口授权…（在弹窗中选择 Pico 的 COM 口）');
+      port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 115200 });
+      // TinyUSB: tud_cdc_connected 需要 DTR/RTS 置位，否则设备端直接丢弃日志
+      await port.setSignals({ dataTerminalReady: true });
+      writer = port.writable.getWriter();
+      sysLine('已连接 115200 8N1 · DTR=true。hb 横幅每 15s 一条；若 20s 内无输出，给手柄断电重插再点连接。');
+      setConnected(true);
+      readLoop();
+    } catch (e) {
+      sysLine('连接失败: ' + (e && e.message ? e.message : e));
+      await cleanupPort();
+    }
+  }
+
+  async function readLoop() {
+    readAbort = false;
+    while (port && port.readable && !readAbort) {
+      reader = port.readable.getReader();
+      try {
+        for (;;) {
+          var r = await reader.read();
+          if (r.done) break;
+          var txt = decoder.decode(r.value, { stream: true });
+          if (txt) onChunk(txt);
+        }
+      } catch (e) {
+        sysLine('串口读取中断: ' + (e && e.message ? e.message : e));
+        break;
+      } finally {
+        try { reader.releaseLock(); } catch (err) {}
+        reader = null;
+      }
+    }
+    var tail = decoder.decode();
+    if (tail) onChunk(tail);
+    if (!readAbort) await handleGone();
+  }
+
+  async function cleanupPort() {
+    try { if (writer) writer.releaseLock(); } catch (e) {}
+    writer = null;
+    try { if (port) await port.close(); } catch (e) {}
+    port = null;
+    setConnected(false);
+  }
+
+  async function disconnectSerial() {
+    readAbort = true;
+    try { if (reader) await reader.cancel(); } catch (e) {}
+    await cleanupPort();
+    sysLine('已断开串口。');
+  }
+
+  async function handleGone() {
+    if (!port) return;
+    var p = port; port = null;
+    try { if (writer) writer.releaseLock(); } catch (e) {}
+    writer = null;
+    try { await p.close(); } catch (e) {}
+    setConnected(false, '已断开');
+    sysLine('串口已消失（BOOTSEL 重启 / 拔线属预期）。设备重新枚举后请再点「连接 Pico」。');
+  }
+
+  if ('serial' in navigator) {
+    navigator.serial.addEventListener('connect', function () {
+      sysLine('检测到新串口设备插入。');
+    });
+    navigator.serial.addEventListener('disconnect', function (e) {
+      if (port && (!e.port || e.port === port)) handleGone();
+    });
+  }
+
+  async function sendCmd(cmd, label) {
+    if (!writer || !port) { sysLine('未连接串口，无法发送。'); return; }
+    try {
+      txCount++;
+      await writer.write(new TextEncoder().encode(cmd));
+      appendLine('> ' + label, 'ln-tx');
+      $('rxCount').textContent = '行 ' + rxLines + ' · TX ' + txCount;
+    } catch (e) {
+      sysLine('发送失败: ' + (e && e.message ? e.message : e));
+    }
+  }
+
+  // ---- BOOTSEL 二次确认（5 秒内再点一次才执行）----
+  var bootselArmedAt = 0, bootselTimer = null;
+  function armBootsel() {
+    bootselArmedAt = Date.now();
+    btnBootsel.classList.add('armed');
+    $('bootselLabel').textContent = '再点一次=确认';
+    $('bootselHint').textContent = '5 秒内未确认自动取消';
+    if (bootselTimer) clearTimeout(bootselTimer);
+    bootselTimer = setTimeout(disarmBootsel, 5000);
+  }
+  function disarmBootsel() {
+    bootselArmedAt = 0;
+    if (bootselTimer) { clearTimeout(bootselTimer); bootselTimer = null; }
+    btnBootsel.classList.remove('armed');
+    $('bootselLabel').textContent = 'BOOTSEL';
+    $('bootselHint').textContent = '危险 · 重启进 RP2350 刷机盘（两次点击确认）';
+  }
+  btnBootsel.addEventListener('click', function () {
+    if (!port) return;
+    if (bootselArmedAt && Date.now() - bootselArmedAt < 5000) {
+      disarmBootsel();
+      sendCmd(CMDS.bootsel, 'BOOTSEL  <<将重启设备>>');
+    } else {
+      armBootsel();
+    }
+  });
+
+  btnConnect.addEventListener('click', connectSerial);
+  btnDisconnect.addEventListener('click', disconnectSerial);
+  btnRumble.addEventListener('click', function () { sendCmd(CMDS.rumble, 'RUMBLE'); });
+  btnTone.addEventListener('click', function () { sendCmd(CMDS.tone, 'TONE (尾部多一个 \\r)'); });
+  $('btnClear').addEventListener('click', function () {
+    logEl.innerHTML = ''; rxLines = 0; $('rxCount').textContent = '';
+  });
+
+  // ============================ 手柄 ============================
+  var BTN_LABELS = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'Back', 'Start', 'L3', 'R3', '\u2191', '\u2193', '\u2190', '\u2192', 'Guide'];
+  var padBtnEls = [];
+  (function buildPadButtons() {
+    var host = $('padButtons');
+    for (var i = 0; i < BTN_LABELS.length; i++) {
+      var d = document.createElement('div');
+      d.className = 'pbtn';
+      d.innerHTML = '<span>' + BTN_LABELS[i] + '</span>';
+      d.title = 'buttons[' + i + ']';
+      host.appendChild(d);
+      padBtnEls.push(d);
+    }
+  })();
+
+  var padSel = $('padSelect');
+  var padSig = '';
+  function refreshPadList(pads) {
+    var sig = '';
+    for (var i = 0; i < pads.length; i++) if (pads[i]) sig += pads[i].index + ':' + pads[i].id + '|';
+    if (sig === padSig) return;
+    padSig = sig;
+    var keep = padSel.value;
+    padSel.innerHTML = '';
+    if (!sig) {
+      var o0 = document.createElement('option');
+      o0.value = '-1'; o0.textContent = '(无手柄)';
+      padSel.appendChild(o0);
+    }
+    for (var j = 0; j < pads.length; j++) {
+      if (!pads[j]) continue;
+      var o = document.createElement('option');
+      o.value = String(pads[j].index);
+      o.textContent = '#' + pads[j].index + ' ' + pads[j].id.slice(0, 48);
+      padSel.appendChild(o);
+    }
+    var restored = false;
+    for (var k = 0; k < padSel.options.length; k++) {
+      if (padSel.options[k].value === keep) { padSel.value = keep; restored = true; break; }
+    }
+    if (!restored && padSel.options.length) padSel.selectedIndex = 0;
+  }
+
+  window.addEventListener('gamepadconnected', function (e) {
+    sysLine('手柄已连接: #' + e.gamepad.index + ' ' + e.gamepad.id);
+  });
+  window.addEventListener('gamepaddisconnected', function (e) {
+    sysLine('手柄已断开: #' + e.gamepad.index + ' ' + e.gamepad.id);
+  });
+
+  function fmt(v) { return (v >= 0 ? '+' : '') + v.toFixed(2); }
+  function setStick(which, x, y) {
+    x = Math.max(-1, Math.min(1, x)); y = Math.max(-1, Math.min(1, y));
+    $('stick' + which + 'dot').style.transform = 'translate(' + (x * 42).toFixed(1) + 'px,' + (y * 42).toFixed(1) + 'px)';
+    $('stick' + which + 'num').textContent = which + ' x' + fmt(x) + ' y' + fmt(y);
+  }
+  function setTrig(which, v) {
+    v = Math.max(0, Math.min(1, v));
+    $(which + 'Fill').style.width = Math.round(v * 100) + '%';
+    $(which + 'Val').textContent = v.toFixed(2);
+  }
+
+  function renderPad() {
+    var pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    refreshPadList(pads);
+    var gp = null, i;
+    var want = parseInt(padSel.value, 10);
+    if (want >= 0) {
+      for (i = 0; i < pads.length; i++) if (pads[i] && pads[i].index === want) { gp = pads[i]; break; }
+    }
+    if (!gp) for (i = 0; i < pads.length; i++) if (pads[i]) { gp = pads[i]; break; }
+
+    var info = $('padInfo');
+    if (!gp) {
+      info.textContent = '未检测到手柄 —— 在浏览器窗口里按手柄任意键 / 摇杆即可唤醒（Chrome 需先输入一次才列出设备）';
+      info.className = 'padinfo muted';
+      for (i = 0; i < padBtnEls.length; i++) padBtnEls[i].className = 'pbtn';
+      setStick('L', 0, 0); setStick('R', 0, 0); setTrig('lt', 0); setTrig('rt', 0);
+      return;
+    }
+    info.className = 'padinfo';
+    info.textContent = '#' + gp.index + ' · ' + gp.id + (gp.mapping === 'standard' ? ' · 标准映射' : ' · 非标准映射（布局可能对不上）');
+
+    for (i = 0; i < padBtnEls.length; i++) {
+      var btn = gp.buttons[i], el = padBtnEls[i];
+      var cls = 'pbtn';
+      if (btn) cls += btn.pressed ? ' on' : (btn.value > 0.08 ? ' mid' : '');
+      if (el.className !== cls) el.className = cls;
+    }
+    setStick('L', gp.axes[0] || 0, gp.axes[1] || 0);
+    setStick('R', gp.axes[2] || 0, gp.axes[3] || 0);
+    setTrig('lt', gp.buttons[6] ? gp.buttons[6].value : 0);
+    setTrig('rt', gp.buttons[7] ? gp.buttons[7].value : 0);
+    rateStats(gp);
+  }
+
+  // Polling-rate card: gamepad.timestamp deltas are the USB report cadence the OS
+  // actually delivers (change-driven reports => dense while moving, sparse at rest).
+  var rt = { last: 0, iv: [], in3: [], lastIn3: 0 };
+  function rateStats(gp) {
+    var el = $('rateCard'); if (!el) return;
+    var t = gp.timestamp;
+    if (rt.last && t > rt.last) {
+      rt.iv.push(t - rt.last);
+      if (rt.iv.length > 500) rt.iv.shift();
+    }
+    rt.last = t;
+    var d = rt.iv.slice().sort(function (a, b) { return a - b; });
+    var s = '—';
+    if (d.length > 8) {
+      var p50 = d[Math.floor(d.length / 2)], p95 = d[Math.floor(d.length * 0.95)], mx = d[d.length - 1];
+      s = p50.toFixed(1) + ' / ' + p95.toFixed(1) + ' / ' + mx.toFixed(0) + ' ms';
+      el.querySelector('.r-hz').textContent = (1000 / p50).toFixed(0) + ' Hz';
+    } else { el.querySelector('.r-hz').textContent = '…'; }
+    el.querySelector('.r-iv').textContent = s;
+    // controller->pico event rate, parsed from the serial log stream (HL hook feeds us)
+    var now = performance.now();
+    rt.in3 = rt.in3.filter(function (x) { return now - x < 1000; });
+    el.querySelector('.r-in3').textContent = rt.in3.length + ' /s';
+  }
+
+  function raf() { renderPad(); requestAnimationFrame(raf); }
+  requestAnimationFrame(raf);
+
+  // ============================ 启动 ============================
+  sysLine('padtest 就绪。点「连接 Pico (COM口)」选择设备串口（115200 · DTR=true）。');
+  if (!('serial' in navigator)) {
+    sysLine('警告: 当前浏览器没有 navigator.serial —— 请改用桌面版 Chrome / Edge，或经 localhost 打开（见顶部说明）。');
+  }
+})();
+</script>
+</body>
+</html>
