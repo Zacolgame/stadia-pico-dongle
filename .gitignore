@@ -1,0 +1,8 @@
+build/
+build_host/
+__pycache__/
+*.uf2
+*.elf.map
+pico-log-*
+.DS_Store
+*.log
