@@ -24,6 +24,7 @@
 // RSA-2048 operation, and the iso OUT endpoint is re-armed by the very next
 // iteration after the transfer-complete event.
 #include "pico/stdlib.h"
+#include "pico/multicore.h"
 #include "tusb.h"
 #include "ipc.h"
 #include "usb_hid.h"
@@ -44,6 +45,11 @@ uint32_t *core1_stack_area(void) { return core1_stack; }
 uint32_t core1_stack_bytes(void) { return CORE1_STACK_BYTES; }
 
 void core1_main(void) {
+    // Flash-write safety: WIFI SAVE/RESET on core0 erases/programs a flash
+    // sector, which stalls XIP code fetches on BOTH cores. Register as a
+    // lockout victim so core0 can spin us in RAM for those ~50-100 ms (USB
+    // glitches briefly and the host recovers by itself).
+    multicore_lockout_victim_init();
     // TinyUSB MUST be initialised on this core: dcd_init() installs the
     // USBCTRL_IRQ handler in the (shared) vector table and dcd_int_enable()
     // enables the IRQ in THIS core's NVIC, so USB interrupts are delivered to

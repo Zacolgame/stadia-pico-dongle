@@ -25,6 +25,7 @@
 #include "rtc.h"
 #include "usb_hid.h"
 #include "ipc.h"
+#include "wificfg.h"
 #include "hfault.h"
 #include "ramlog.h"
 #include "config.h"
@@ -102,6 +103,11 @@ static void core0_command_pump(void) {
             rtc_audio_test_raw();
             FWLOG("host: audptest requested (one raw RTP frame)");
             break;
+        case IPC_CMD_WIFI: {
+            ipc_wifi_cmd_t w;
+            if (ipc_wifi_take(&w)) wificfg_on_cmd(w.op, w.ssid, w.pass);
+            break;
+        }
         default:
             break;
         }
@@ -139,6 +145,7 @@ int main(void) {
     // reset after stage*2 s so a hang is both localised and self-recovering.
     multicore_launch_core1_with_stack(core1_main, core1_stack_area(), core1_stack_bytes());
     cloud_init();
+    wificfg_load();       // AP credentials: flash record or compiled defaults
     net_infra_init();     // AP + DHCP + DNS + SNTP (safe from lwIP raw-API thread via cyw43 init)
     rtc_init();           // STUN/DTLS endpoints (needs tcpip context: run via callback)
     https_init();         // TLS 443
@@ -232,11 +239,11 @@ int main(void) {
             // receive here proves the chip's rx path itself works, which separates
             // "chip/transport broken" from "AP-mode forwarding broken". No DHCP client is
             // compiled in, so an IP is not expected - only received frames matter.
-            FWLOG("DIAG: phase4 STA rx test -> joining ssid=%s", WIFI_SSID);
+            FWLOG("DIAG: phase4 STA rx test -> joining ssid=%s", wificfg_ssid());
             cyw43_arch_disable_ap_mode();
             cyw43_arch_enable_sta_mode();
-            int rc = cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASS,
-                                                        CYW43_AUTH_WPA2_AES_PSK, 15000);
+            int rc = cyw43_arch_wifi_connect_timeout_ms(wificfg_ssid(), wificfg_pass(),
+                                                        wificfg_auth(), 15000);
             FWLOG("DIAG: phase4 wifi_connect rc=%d sta_link=%d", rc,
                   cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA));
         }

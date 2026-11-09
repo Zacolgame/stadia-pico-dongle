@@ -54,6 +54,37 @@ python tools/raw-serial.py COMx flash build/stadia_one.uf2
 3. 在 Windows 的声音设置里把输出切到 USB Audio Device，音乐就从手柄耳机口出来。
 4. 看日志：`python tools/raw-serial.py COMx read 10`
 
+## WiFi 账密
+
+加密狗自己开一个 Wi-Fi 热点。默认值：名字 `StadiaPhone`，密码 `TestPass1234a`
+（WPA2）。手柄那边记着同一套账密，所以两边必须永远一致：改了一边，另一边也要改。
+
+加密狗这边用串口命令管理：
+
+```
+WIFI SHOW              看当前配置（生效中 + 暂存 + 已保存，密码永远不打印）
+WIFI SSID <1..32字>    暂存新名字（可以带空格）
+WIFI PASS <8..63字>    暂存新 WPA2 密码（可以带空格）
+WIFI OPEN              暂存为开放网络（不要密码）
+WIFI SAVE              写入 flash 并重启生效
+WIFI RESET             清掉已存配置，重启回到编译默认值
+```
+
+例子：`python tools/raw-serial.py COMx send "WIFI SSID MyDongle"`。
+
+完整改账密的顺序：
+
+1. 在加密狗上设好并 `WIFI SAVE`。它会重启，手柄掉线是正常的。
+2. 用 BLE 把同一套账密教给手柄，推荐用上游工具：`pip install "stadiacast[ble]"`，
+   然后 `stadiacast-provision scan` 和
+   `stadiacast-provision provision --address <手柄蓝牙地址> --ssid <名字>`。
+   先让手柄进 BLE 配网模式（按住 `···` + Assistant 键直到橙灯闪）。电脑需要有能用的蓝牙。
+3. 手柄连上加密狗热点，正常注册使用。
+
+救砖：如果两边对不上，手柄只是连不上，什么都不会坏。USB 串口永远能用：
+`WIFI SHOW` 看状态，`WIFI RESET` 回默认值（手柄记得默认值，会自己回来）。
+重刷固件不会丢已存的 WiFi 配置，只有 `WIFI RESET` 或整片擦除才会清掉。
+
 ## 关于证书（细节见下面的[法律声明](#法律声明)）
 
 - **HTTPS** 用的是 [stadiacast](https://github.com/jkfran/stadiacast) 公开的那张已吊销测试证书。它被吊销过，所以普通浏览器和 TLS 客户端都会拒绝；但手柄只检查证书链能不能走到谷歌根证书，所以会接受。文件与出处在 vendor/upstream-credential/。

@@ -67,6 +67,42 @@ python tools/raw-serial.py COMx flash build/stadia_one.uf2
    the controller's headset jack.
 4. Read logs with `python tools/raw-serial.py COMx read 10`.
 
+## WiFi credentials
+
+The dongle hosts a Wi-Fi access point. Defaults: SSID `StadiaPhone`, password
+`TestPass1234a` (WPA2). The controller remembers the same credentials, so the
+two sides must always match: change one side and you must change the other.
+
+Manage the dongle side over the serial console:
+
+```
+WIFI SHOW              show active + staged + stored credentials (password never printed)
+WIFI SSID <1..32>      stage a new SSID (spaces allowed)
+WIFI PASS <8..63>      stage a new WPA2 passphrase (spaces allowed)
+WIFI OPEN              stage an open network (no password)
+WIFI SAVE              write staged config to flash and reboot to apply
+WIFI RESET             erase stored config, reboot back to compiled defaults
+```
+
+Example: `python tools/raw-serial.py COMx send "WIFI SSID MyDongle"`.
+
+To change credentials end to end:
+
+1. Set + `WIFI SAVE` on the dongle. It reboots and the controller drops off;
+   that is expected.
+2. Teach the controller the same SSID/password over BLE, e.g. with the upstream
+   tool: `pip install "stadiacast[ble]"`, then `stadiacast-provision scan` and
+   `stadiacast-provision provision --address <ADDR> --ssid <SSID>` (put the
+   controller in BLE setup mode first: hold the `···` + Assistant buttons until
+   it blinks orange). You need a working Bluetooth adapter.
+3. The controller joins the dongle's access point and registers as usual.
+
+Recovery: if the two sides disagree, the controller simply cannot join and
+nothing breaks. Serial over USB always works: `WIFI SHOW` to inspect,
+`WIFI RESET` to go back to defaults (the controller remembers the defaults and
+rejoins). Reflashing the firmware preserves stored WiFi settings; only
+`WIFI RESET` or a full chip erase clears them.
+
 ## Certificates (short version; full details in [Legal notices](#legal-notices))
 
 - **HTTPS** uses the revoked test certificate that the

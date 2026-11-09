@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "pico/cyw43_arch.h"
+#include "wificfg.h"
 #include "hardware/gpio.h"
 #include "lwip/ip_addr.h"
 #include "lwip/udp.h"
@@ -126,7 +127,7 @@ void net_infra_init(void) {
     // because that call runs set_up -> ap_init which consumes ap_channel.
     cyw43_wifi_ap_set_channel(&cyw43_state, WIFI_CHANNEL);
     // EXACTLY the official access_point example sequence
-    cyw43_arch_enable_ap_mode(WIFI_SSID, WIFI_PASS, CYW43_AUTH_WPA2_AES_PSK);
+    cyw43_arch_enable_ap_mode(wificfg_ssid(), wificfg_pass(), wificfg_auth());
     // Diagnostics: log every async event (assoc/deauth/psk/link) and every eth TX.
     // The trace code IS compiled in even for Release (the name table is in the image),
     // so this is the cheapest way to see what the chip is really doing. ETH_RX is left

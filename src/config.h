@@ -1,8 +1,9 @@
 // stadia-one — the whole fake cloud + gamepad bridge on one Pico 2 W.
 #pragma once
 
-#define WIFI_SSID        "StadiaPhone"      // burned into the controller; DO NOT change
-#define WIFI_PASS        "TestPass1234a"
+#define WIFI_SSID        "StadiaPhone"      // compiled defaults (used when no
+#define WIFI_PASS        "TestPass1234a"    // flash record exists - see WIFI
+                                            // SAVE/RESET console commands)
 #define WIFI_CHANNEL     6
 
 #define AP_IP            "192.168.137.1"    // the Pico IS the cloud: DNS answers itself
@@ -108,7 +109,7 @@
 // that this controller drops (no IP-fragment reassembly); the p3-3652 mixed
 // failure is being retested cleanly because its evidence was confounded by WDTs.
 #define DTLS_IDENTITY_UPSTREAM 0
-#define FW_BUILD "p3-3656-mixed"   // p3-3646: static canaried Opus pseudostack
+#define FW_BUILD "p3-3660-wificfg"   // p3-3646: static canaried Opus pseudostack
                              // (48 KiB .bss, OVERRIDE_OPUS_ALLOC_SCRATCH) + creep
                              // and peak telemetry. p3-3609: Opus init step probe
                              // (setup -> encode -> publish as separate timed

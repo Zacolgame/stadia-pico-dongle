@@ -38,7 +38,25 @@ enum {
     IPC_CMD_DTLS_TEST,      // rtc_request_dtls_selftest()
     IPC_CMD_ENCDUMP,        // cloud_encoder_dump()
     IPC_CMD_AUDPTEST,       // rtc_audio_test_raw()
+    IPC_CMD_WIFI,           // doorbell: payload waiting in the wifi mailbox
 };
+
+// ---- wifi console mailbox (core1 -> core0), single slot, SPSC ------------
+// Console WIFI commands carry strings, which do not fit the uint8_t command
+// queue. core1 fills the mailbox, bumps the sequence, then pushes IPC_CMD_WIFI
+// as the doorbell; core0 pops the doorbell and takes the payload. Human-paced
+// commands only: an untaken slot is overwritten by the next push.
+enum {
+    WIFI_OP_SHOW = 1,
+    WIFI_OP_SSID,
+    WIFI_OP_PASS,
+    WIFI_OP_OPEN,
+    WIFI_OP_SAVE,
+    WIFI_OP_RESET,
+};
+typedef struct { uint8_t op; char ssid[33]; char pass[65]; } ipc_wifi_cmd_t;
+void ipc_wifi_push(uint8_t op, const char *ssid, const char *pass);  // core1
+bool ipc_wifi_take(ipc_wifi_cmd_t *out);                            // core0
 
 // ---- lifecycle -------------------------------------------------------------
 // Call from core0 BEFORE multicore_launch_core1(): claims the log spinlock and

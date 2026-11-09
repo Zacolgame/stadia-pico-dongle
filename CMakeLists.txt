@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.13)
 if (NOT DEFINED PICO_SDK_PATH AND DEFINED ENV{PICO_SDK_PATH})
     set(PICO_SDK_PATH $ENV{PICO_SDK_PATH})
 endif()
@@ -175,7 +175,7 @@ add_executable(stadia_one
   ${PICO_SDK_PATH}/lib/tinyusb/src/class/cdc/cdc_device.c
   # p3-3600-dualcore: core1_main.c + ipc.c are the dual-core split (core1 owns
   # TinyUSB/audio/opus; ipc.c is the only shared-memory surface between cores).
-  src/dhcpserver.c src/dnsserver.c src/timing_alt.c src/certs.c src/main.c src/pb.c src/proto.c src/net_infra.c src/cloud.c src/https.c src/rtc.c src/usb_hid.c src/usb_audio.c src/ipc.c src/core1_main.c src/hfault.c src/ramlog.c
+  src/dhcpserver.c src/dnsserver.c src/timing_alt.c src/certs.c src/main.c src/pb.c src/proto.c src/net_infra.c src/cloud.c src/https.c src/rtc.c src/usb_hid.c src/usb_audio.c src/ipc.c src/core1_main.c src/hfault.c src/ramlog.c src/wificfg.c
 )
 target_include_directories(stadia_one PRIVATE src ${CMAKE_CURRENT_SOURCE_DIR})
 # usb_audio.c owns the static pseudostack and logs the RAM math; same values, one
@@ -190,6 +190,7 @@ target_compile_definitions(stadia_one PRIVATE
   OPUS_STATIC_SCRATCH_BYTES=${OPUS_STATIC_SCRATCH_SIZE})
 target_link_libraries(stadia_one PRIVATE
   pico_stdlib
+  hardware_flash
   pico_cyw43_arch_lwip_poll
   pico_lwip
   pico_multicore

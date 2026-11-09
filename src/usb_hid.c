@@ -1,4 +1,4 @@
-﻿// usb_hid.c — TinyUSB vendor XInput pad (Xbox 360 wired controller identity)
+// usb_hid.c — TinyUSB vendor XInput pad (Xbox 360 wired controller identity)
 // + CDC console: pad state in, rumble out.
 //
 // p3-3600-dualcore: THIS FILE NOW RUNS ON CORE 1. Together with usb_audio.c it
@@ -732,7 +732,7 @@ void usb_hid_pump_cdc(void) {
     // device reboots into the RP2350 ROM bootloader, which mounts as the RPI-RP2 drive.
     // The host can then copy a new .uf2 without the user touching BOOTSEL again.
     {
-        static char cmd[16]; static int cl;
+        static char cmd[104]; static int cl;
         for (int i = 0; i < nrx; i++) {
             char ch = rx[i];
             if (ch == '\r' || ch == '\n') {
@@ -837,6 +837,45 @@ void usb_hid_pump_cdc(void) {
                     tud_cdc_write_flush();
                     sleep_ms(30);
                     reset_usb_boot(0, 0);        // does not return
+                }
+                // WIFI console: AP credential management, executed on core0 (it
+                // owns the flash + AP state). Values are rest-of-line so SSIDs
+                // and passphrases may contain spaces. core0 validates + reports.
+                if (cl >= 4 && !strncmp(cmd, "WIFI", 4) && (cl == 4 || cmd[4] == ' ')) {
+                    const char *sub = (cl > 5) ? cmd + 5 : "";
+                    char vpass[65]; vpass[0] = 0;
+                    if (cl == 4) {
+                        clog_("wifi: WIFI SHOW | WIFI SSID <1..32> | WIFI PASS <8..63> | WIFI OPEN | WIFI SAVE | WIFI RESET");
+                    } else if (!strcmp(sub, "SHOW")) {
+                        ipc_wifi_push(WIFI_OP_SHOW, NULL, NULL);
+                        ipc_cmd_push(IPC_CMD_WIFI);
+                    } else if (!strcmp(sub, "OPEN")) {
+                        ipc_wifi_push(WIFI_OP_OPEN, NULL, NULL);
+                        ipc_cmd_push(IPC_CMD_WIFI);
+                    } else if (!strcmp(sub, "SAVE")) {
+                        ipc_wifi_push(WIFI_OP_SAVE, NULL, NULL);
+                        ipc_cmd_push(IPC_CMD_WIFI);
+                    } else if (!strcmp(sub, "RESET")) {
+                        ipc_wifi_push(WIFI_OP_RESET, NULL, NULL);
+                        ipc_cmd_push(IPC_CMD_WIFI);
+                    } else if (!strncmp(sub, "SSID ", 5) && cl > 10) {
+                        size_t n = (size_t)cl - 10;
+                        if (n > 32) n = 32;
+                        memcpy(vpass, sub + 5, n);
+                        vpass[n] = 0;
+                        ipc_wifi_push(WIFI_OP_SSID, vpass, NULL);
+                        ipc_cmd_push(IPC_CMD_WIFI);
+                    } else if (!strncmp(sub, "PASS ", 5) && cl > 10) {
+                        size_t n = (size_t)cl - 10;
+                        if (n > 64) n = 64;
+                        memcpy(vpass, sub + 5, n);
+                        vpass[n] = 0;
+                        ipc_wifi_push(WIFI_OP_PASS, NULL, vpass);
+                        ipc_cmd_push(IPC_CMD_WIFI);
+                    } else {
+                        clog_("wifi: WIFI SHOW | WIFI SSID <1..32> | WIFI PASS <8..63> | WIFI OPEN | WIFI SAVE | WIFI RESET");
+                    }
+                    cl = 0; continue;
                 }
                 cl = 0;
             } else if (cl < (int)sizeof cmd - 1) {

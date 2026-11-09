@@ -5,6 +5,11 @@
 <a id="中文"></a>
 ## 中文
 
+### 0.0.2 — 未发布
+
+- 新增 WiFi 账密管理：串口命令 `WIFI SHOW/SSID/PASS/OPEN/SAVE/RESET`，配置存 flash，断电不丢，重刷固件也不丢。
+- 使用说明见 README 的 WiFi 账密一节（含手柄侧 BLE 配网步骤与救砖方法）。
+
 ### 0.0.1 — 首个公开版本
 
 - 树莓派 Pico 2 W 固件：恢复 Stadia 手柄的 Wi-Fi 模式，按键、震动、耳机音频都可用。
@@ -23,6 +28,11 @@
 
 <a id="english"></a>
 ## English
+
+### 0.0.2 — unreleased
+
+- New WiFi credential management: serial commands `WIFI SHOW/SSID/PASS/OPEN/SAVE/RESET`, config kept in flash (survives power loss and reflashing).
+- See the README WiFi section for usage, controller-side BLE provisioning steps, and recovery.
 
 ### 0.0.1 — first public release
 

@@ -300,6 +300,39 @@ bool ipc_cmd_pop(uint8_t *cmd) {
     return true;
 }
 
+// ---------------------------------------------------------------- wifi mailbox
+// BSS zero-init is the correct initial state (seq 0 = empty); ipc_init must
+// NOT reset these, so a second init call can never wipe a live command.
+static ipc_wifi_cmd_t wifi_mbox;
+static volatile uint32_t wifi_seq, wifi_ack;
+
+void ipc_wifi_push(uint8_t op, const char *ssid, const char *pass) {
+    wifi_mbox.op = op;
+    if (ssid) {
+        strncpy(wifi_mbox.ssid, ssid, sizeof wifi_mbox.ssid - 1);
+        wifi_mbox.ssid[sizeof wifi_mbox.ssid - 1] = 0;
+    } else {
+        wifi_mbox.ssid[0] = 0;
+    }
+    if (pass) {
+        strncpy(wifi_mbox.pass, pass, sizeof wifi_mbox.pass - 1);
+        wifi_mbox.pass[sizeof wifi_mbox.pass - 1] = 0;
+    } else {
+        wifi_mbox.pass[0] = 0;
+    }
+    __dmb();
+    wifi_seq++;
+}
+
+bool ipc_wifi_take(ipc_wifi_cmd_t *out) {
+    if (wifi_ack == wifi_seq) return false;
+    __dmb();
+    *out = wifi_mbox;
+    __dmb();
+    wifi_ack = wifi_seq;
+    return true;
+}
+
 // ---------------------------------------------------------------- audio handshake
 void ipc_audio_set_want(bool on) { audio_want = on ? 1u : 0u; __dmb(); }
 bool ipc_audio_get_want(void) { return audio_want != 0; }
